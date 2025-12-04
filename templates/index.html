@@ -1,0 +1,59 @@
+<!-- templates/index.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 text-center">
+        <h1 class="display-4 mb-4">
+            <i class="bi bi-journal-text text-primary"></i> NoteFlow
+        </h1>
+        <p class="lead mb-4">
+            Умное приложение для организации ваших мыслей и идей
+        </p>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Начните прямо сейчас!</h5>
+                <div class="d-grid gap-2 mt-3">
+                    <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-person-plus"></i> Зарегистрироваться
+                    </a>
+                    <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-lg">
+                        <i class="bi bi-box-arrow-in-right"></i> Войти
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-lightning-charge display-6 text-primary"></i>
+                        <h5>Быстро</h5>
+                        <p class="text-muted">Мгновенное создание заметок</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-folder-symlink display-6 text-primary"></i>
+                        <h5>Организованно</h5>
+                        <p class="text-muted">Категории и теги</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-search display-6 text-primary"></i>
+                        <h5>Умный поиск</h5>
+                        <p class="text-muted">Находите заметки мгновенно</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
