@@ -156,11 +156,219 @@ def logout():
     flash('Вы вышли из системы', 'info')
     return redirect(url_for('index'))
 
+# маршруты для заметок
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
     """Личный кабинет пользователя"""
     return "Дашборд будет здесь!"
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    """Личный кабинет - список всех заметок"""
+    # Получаем заметки текущего пользователя
+    notes = Note.query.filter_by(user_id=current_user.id).order_by(
+        Note.is_pinned.desc(),  # Сначала закрепленные
+        Note.updated_at.desc()  # Потом по дате обновления
+    ).all()
+    
+    # Получаем категории пользователя
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+    
+    return render_template('dashboard.html', 
+                         notes=notes, 
+                         categories=categories,
+                         Category=Category)  # Передаем класс Category в шаблон
+
+
+@app.route('/notes/new', methods=['GET', 'POST'])
+@login_required
+def new_note():
+    """Создание новой заметки"""
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        content = request.form.get('content', '').strip()
+        category_id = request.form.get('category_id')
+        tags = request.form.get('tags', '').strip()
+        
+        # Валидация
+        if not title:
+            flash('Заголовок обязателен', 'danger')
+            return redirect(url_for('new_note'))
+        
+        # Создаем заметку
+        note = Note(
+            title=title,
+            content=content,
+            user_id=current_user.id,
+            tags=tags
+        )
+        
+        # Если выбрана категория
+        if category_id:
+            # Проверяем, что категория принадлежит пользователю
+            category = Category.query.get(category_id)
+            if category and category.user_id == current_user.id:
+                note.category_id = category_id
+        
+        db.session.add(note)
+        db.session.commit()
+        
+        flash('Заметка успешно создана!', 'success')
+        return redirect(url_for('dashboard'))
+    
+    # GET запрос - показываем форму
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+    return render_template('note_form.html', 
+                         note=None, 
+                         categories=categories,
+                         action='create')
+
+
+@app.route('/notes/<int:note_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_note(note_id):
+    """Редактирование заметки"""
+    note = Note.query.get_or_404(note_id)
+    
+    # Проверяем, что заметка принадлежит текущему пользователю
+    if note.user_id != current_user.id:
+        flash('У вас нет доступа к этой заметке', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        note.title = request.form.get('title', '').strip()
+        note.content = request.form.get('content', '').strip()
+        note.category_id = request.form.get('category_id')
+        note.tags = request.form.get('tags', '').strip()
+        note.updated_at = datetime.utcnow()  # Обновляем время
+        
+        if not note.title:
+            flash('Заголовок обязателен', 'danger')
+            return redirect(url_for('edit_note', note_id=note_id))
+        
+        db.session.commit()
+        flash('Заметка успешно обновлена!', 'success')
+        return redirect(url_for('dashboard'))
+    
+    # GET запрос - показываем форму редактирования
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+    return render_template('note_form.html', 
+                         note=note, 
+                         categories=categories,
+                         action='edit')
+
+
+@app.route('/notes/<int:note_id>/delete', methods=['POST'])
+@login_required
+def delete_note(note_id):
+    """Удаление заметки"""
+    note = Note.query.get_or_404(note_id)
+    
+    if note.user_id != current_user.id:
+        flash('У вас нет доступа к этой заметке', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    db.session.delete(note)
+    db.session.commit()
+    
+    flash('Заметка успешно удалена!', 'success')
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/notes/<int:note_id>/pin', methods=['POST'])
+@login_required
+def pin_note(note_id):
+    """Закрепление/открепление заметки"""
+    note = Note.query.get_or_404(note_id)
+    
+    if note.user_id != current_user.id:
+        flash('У вас нет доступа к этой заметке', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Переключаем состояние закрепления
+    note.is_pinned = not note.is_pinned
+    db.session.commit()
+    
+    action = "закреплена" if note.is_pinned else "откреплена"
+    flash(f'Заметка "{note.title}" {action}!', 'success')
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/notes/<int:note_id>')
+@login_required
+def view_note(note_id):
+    """Просмотр отдельной заметки"""
+    note = Note.query.get_or_404(note_id)
+    
+    if note.user_id != current_user.id:
+        flash('У вас нет доступа к этой заметке', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('view_note.html', note=note)
+
+# маршруты для категорий
+
+@app.route('/categories/new', methods=['POST'])
+@login_required
+def new_category():
+    """Создание новой категории"""
+    name = request.form.get('name', '').strip()
+    color = request.form.get('color', 'primary')
+    
+    if not name:
+        flash('Название категории обязательно', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Проверяем, нет ли уже такой категории
+    existing = Category.query.filter_by(
+        name=name, 
+        user_id=current_user.id
+    ).first()
+    
+    if existing:
+        flash('Категория с таким названием уже существует', 'warning')
+        return redirect(url_for('dashboard'))
+    
+    category = Category(
+        name=name,
+        color=color,
+        user_id=current_user.id
+    )
+    
+    db.session.add(category)
+    db.session.commit()
+    
+    flash(f'Категория "{name}" создана!', 'success')
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/categories/<int:category_id>/delete', methods=['POST'])
+@login_required
+def delete_category(category_id):
+    """Удаление категории"""
+    category = Category.query.get_or_404(category_id)
+    
+    if category.user_id != current_user.id:
+        flash('У вас нет доступа к этой категории', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Переносим заметки в "без категории"
+    notes_with_category = Note.query.filter_by(
+        category_id=category_id,
+        user_id=current_user.id
+    ).all()
+    
+    for note in notes_with_category:
+        note.category_id = None
+    
+    db.session.delete(category)
+    db.session.commit()
+    
+    flash(f'Категория "{category.name}" удалена', 'success')
+    return redirect(url_for('dashboard'))
 
 with app.app_context():
     db.create_all()
