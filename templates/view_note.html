@@ -1,0 +1,122 @@
+<!-- templates/view_note.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ note.title }} - NoteFlow{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ note.title }}</h3>
+                        {% if note.is_pinned %}
+                            <span class="badge bg-warning">
+                                <i class="bi bi-pin-angle-fill"></i> Закреплено
+                            </span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <a href="{{ url_for('edit_note', note_id=note.id) }}" 
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-pencil"></i> Редактировать
+                        </a>
+                        <a href="{{ url_for('dashboard') }}" 
+                           class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left"></i> Назад
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <!-- Мета-информация -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <small class="text-muted">
+                            <i class="bi bi-calendar"></i>
+                            Создано: {{ note.created_at.strftime('%d.%m.%Y %H:%M') }}
+                        </small>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <small class="text-muted">
+                            <i class="bi bi-clock"></i>
+                            Обновлено: {{ note.updated_at.strftime('%d.%m.%Y %H:%M') }}
+                        </small>
+                    </div>
+                </div>
+                
+                <!-- Категория -->
+                {% if note.category_id %}
+                <div class="mb-3">
+                    {% set category = Category.query.get(note.category_id) %}
+                    {% if category %}
+                    <span class="badge bg-{{ category.color }} fs-6">
+                        {{ category.name }}
+                    </span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <!-- Содержание -->
+                <div class="content-area mb-4">
+                    {% if note.content %}
+                        {{ note.content|replace('\n', '<br>')|safe }}
+                    {% else %}
+                        <p class="text-muted fst-italic">Содержание отсутствует</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Теги -->
+                {% if note.tags %}
+                <hr>
+                <div>
+                    <h6>Теги:</h6>
+                    {% for tag in note.tags.split(',') %}
+                        {% if tag.strip() %}
+                        <span class="badge bg-secondary me-1 fs-6">{{ tag.strip() }}</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between">
+                    <form method="POST" 
+                          action="{{ url_for('pin_note', note_id=note.id) }}">
+                        <button type="submit" class="btn btn-outline-warning">
+                            {% if note.is_pinned %}
+                                <i class="bi bi-pin-angle"></i> Открепить
+                            {% else %}
+                                <i class="bi bi-pin-angle-fill"></i> Закрепить
+                            {% endif %}
+                        </button>
+                    </form>
+                    
+                    <form method="POST" 
+                          action="{{ url_for('delete_note', note_id=note.id) }}"
+                          onsubmit="return confirm('Удалить заметку «{{ note.title }}»?')">
+                        <button type="submit" class="btn btn-outline-danger">
+                            <i class="bi bi-trash"></i> Удалить заметку
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+    .content-area {
+        font-size: 1.1rem;
+        line-height: 1.6;
+    }
+    .content-area p {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
