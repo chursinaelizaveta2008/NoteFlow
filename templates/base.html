@@ -29,11 +29,22 @@
             <a class="navbar-brand" href="{{ url_for('index') }}">
                 <i class="bi bi-journal-text"></i> NoteFlow
             </a>
+            
             {% if current_user.is_authenticated %}
-            <div class="navbar-nav ms-auto">
-                <span class="nav-link">Привет, {{ current_user.username }}!</span>
-                <a class="nav-link" href="{{ url_for('logout') }}">Выйти</a>
-            </div>
+                <div class="navbar-nav ms-auto">
+                    <span class="nav-link">Привет, {{ current_user.username }}!</span>
+                    <a class="nav-link" href="{{ url_for('dashboard') }}">
+                        <i class="bi bi-journal"></i> Мои заметки
+                    </a>
+                    <a class="nav-link" href="{{ url_for('logout') }}">
+                        <i class="bi bi-box-arrow-right"></i> Выйти
+                    </a>
+                </div>
+            {% else %}
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link" href="{{ url_for('login') }}">Вход</a>
+                    <a class="nav-link" href="{{ url_for('register') }}">Регистрация</a>
+                </div>
             {% endif %}
         </div>
     </nav>
