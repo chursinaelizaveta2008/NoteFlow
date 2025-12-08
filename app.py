@@ -161,8 +161,79 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    """Личный кабинет пользователя"""
-    return "Дашборд будет здесь!"
+    """Личный кабинет с поиском и фильтрацией"""
+    # Получаем параметры из GET запроса
+    search_query = request.args.get('search', '').strip()
+    category_filter = request.args.get('category', 'all')
+    show_archived = request.args.get('archived', 'false') == 'true'
+    sort_by = request.args.get('sort', 'updated')  # updated, created, title
+    
+    # Базовый запрос для заметок текущего пользователя
+    query = Note.query.filter_by(user_id=current_user.id)
+    
+    # Фильтрация по архивированным
+    if not show_archived:
+        query = query.filter_by(is_archived=False)
+    
+    # Поиск по тексту
+    if search_query:
+        search_term = f"%{search_query}%"
+        query = query.filter(
+            db.or_(
+                Note.title.ilike(search_term),
+                Note.content.ilike(search_term),
+                Note.tags.ilike(search_term)
+            )
+        )
+    
+    # Фильтрация по категории
+    if category_filter != 'all':
+        if category_filter == 'uncategorized':
+            query = query.filter_by(category_id=None)
+        else:
+            # Проверяем, что категория принадлежит пользователю
+            category = Category.query.get(category_filter)
+            if category and category.user_id == current_user.id:
+                query = query.filter_by(category_id=category_filter)
+    
+    # Сортировка
+    if sort_by == 'created':
+        query = query.order_by(Note.created_at.desc())
+    elif sort_by == 'title':
+        query = query.order_by(Note.title.asc())
+    else:  # updated (по умолчанию)
+        query = query.order_by(Note.updated_at.desc())
+    
+    # Сначала закрепленные, потом остальные
+    notes = query.all()
+    notes.sort(key=lambda x: (not x.is_pinned, x.updated_at), reverse=True)
+    
+    # Получаем категории пользователя
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+    
+    # Статистика
+    total_notes = Note.query.filter_by(user_id=current_user.id).count()
+    pinned_notes = Note.query.filter_by(
+        user_id=current_user.id, 
+        is_pinned=True,
+        is_archived=False
+    ).count()
+    archived_notes = Note.query.filter_by(
+        user_id=current_user.id, 
+        is_archived=True
+    ).count()
+    
+    return render_template('dashboard.html', 
+                         notes=notes, 
+                         categories=categories,
+                         Category=Category,
+                         search_query=search_query,
+                         category_filter=category_filter,
+                         show_archived=show_archived,
+                         sort_by=sort_by,
+                         total_notes=total_notes,
+                         pinned_notes=pinned_notes,
+                         archived_notes=archived_notes)
 
 @app.route('/dashboard')
 @login_required
@@ -296,6 +367,28 @@ def pin_note(note_id):
     flash(f'Заметка "{note.title}" {action}!', 'success')
     return redirect(url_for('dashboard'))
 
+@app.route('/notes/<int:note_id>/archive', methods=['POST'])
+@login_required
+def archive_note(note_id):
+    """Архивация/восстановление заметки"""
+    note = Note.query.get_or_404(note_id)
+    
+    if note.user_id != current_user.id:
+        flash('У вас нет доступа к этой заметке', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Переключаем состояние архивации
+    note.is_archived = not note.is_archived
+    
+    # Если архивируем - снимаем закрепление
+    if note.is_archived:
+        note.is_pinned = False
+    
+    db.session.commit()
+    
+    action = "архивирована" if note.is_archived else "восстановлена из архива"
+    flash(f'Заметка "{note.title}" {action}!', 'success')
+    return redirect(url_for('dashboard'))
 
 @app.route('/notes/<int:note_id>')
 @login_required
@@ -308,6 +401,58 @@ def view_note(note_id):
         return redirect(url_for('dashboard'))
     
     return render_template('view_note.html', note=note)
+
+@app.route('/notes/batch-action', methods=['POST'])
+@login_required
+def batch_action():
+    """Массовые действия с заметками"""
+    action = request.form.get('action')
+    note_ids = request.form.getlist('note_ids')
+    
+    if not note_ids:
+        flash('Не выбрано ни одной заметки', 'warning')
+        return redirect(url_for('dashboard'))
+    
+    notes = Note.query.filter(
+        Note.id.in_(note_ids),
+        Note.user_id == current_user.id
+    ).all()
+    
+    if not notes:
+        flash('Заметки не найдены', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    count = 0
+    for note in notes:
+        if action == 'archive':
+            note.is_archived = True
+            note.is_pinned = False
+            count += 1
+        elif action == 'unarchive':
+            note.is_archived = False
+            count += 1
+        elif action == 'pin':
+            note.is_pinned = True
+            count += 1
+        elif action == 'unpin':
+            note.is_pinned = False
+            count += 1
+        elif action == 'delete':
+            db.session.delete(note)
+            count += 1
+    
+    db.session.commit()
+    
+    actions = {
+        'archive': 'архивировано',
+        'unarchive': 'восстановлено из архива',
+        'pin': 'закреплено',
+        'unpin': 'откреплено',
+        'delete': 'удалено'
+    }
+    
+    flash(f'{count} заметок {actions.get(action, "обработано")}!', 'success')
+    return redirect(url_for('dashboard'))
 
 # маршруты для категорий
 
