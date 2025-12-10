@@ -84,83 +84,248 @@
     
     <!-- Правая колонка - список заметок -->
     <div class="col-md-8">
+        <!-- Панель поиска и фильтров -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('dashboard') }}" class="row g-2">
+                    <!-- Поиск -->
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" class="form-control" 
+                                   name="search" placeholder="Поиск по заметкам..."
+                                   value="{{ search_query }}">
+                        </div>
+                    </div>
+                    
+                    <!-- Фильтр по категории -->
+                    <div class="col-md-3">
+                        <select class="form-select" name="category">
+                            <option value="all">Все категории</option>
+                            <option value="uncategorized" {% if category_filter == 'uncategorized' %}selected{% endif %}>
+                                Без категории
+                            </option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}" 
+                                    {% if category_filter == category.id|string %}selected{% endif %}>
+                                {{ category.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Сортировка -->
+                    <div class="col-md-3">
+                        <select class="form-select" name="sort">
+                            <option value="updated" {% if sort_by == 'updated' %}selected{% endif %}>
+                                По дате обновления
+                            </option>
+                            <option value="created" {% if sort_by == 'created' %}selected{% endif %}>
+                                По дате создания
+                            </option>
+                            <option value="title" {% if sort_by == 'title' %}selected{% endif %}>
+                                По названию (А-Я)
+                            </option>
+                        </select>
+                    </div>
+                    
+                    <!-- Кнопки фильтров -->
+                    <div class="col-12 mt-2">
+                        <div class="btn-group" role="group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-funnel"></i> Применить фильтры
+                            </button>
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Сбросить
+                            </a>
+                            <button type="button" class="btn btn-outline-info" 
+                                    onclick="toggleBatchActions()">
+                                <i class="bi bi-check2-square"></i> Массовые действия
+                            </button>
+                        </div>
+                        
+                        <!-- Переключатель архива -->
+                        <div class="form-check form-switch d-inline-block ms-3">
+                            <input class="form-check-input" type="checkbox" 
+                                   id="showArchived" name="archived" value="true"
+                                   {% if show_archived %}checked{% endif %}
+                                   onchange="this.form.submit()">
+                            <label class="form-check-label" for="showArchived">
+                                Показать архивные
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Форма массовых действий (скрыта по умолчанию) -->
+        <div id="batchActions" class="card shadow-sm mb-4" style="display: none;">
+            <div class="card-header bg-warning">
+                <h6 class="mb-0">
+                    <i class="bi bi-check2-square"></i> Массовые действия
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('batch_action') }}" 
+                      id="batchForm" onsubmit="return validateBatchForm()">
+                    <div class="mb-3">
+                        <label class="form-label">Выбрано: <span id="selectedCount">0</span> заметок</label>
+                        <select class="form-select" name="action" required>
+                            <option value="">Выберите действие...</option>
+                            <option value="pin">Закрепить</option>
+                            <option value="unpin">Открепить</option>
+                            <option value="archive">Отправить в архив</option>
+                            <option value="unarchive">Восстановить из архива</option>
+                            <option value="delete" class="text-danger">Удалить</option>
+                        </select>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                    onclick="selectAllNotes()">
+                                <i class="bi bi-check-all"></i> Выбрать все
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                    onclick="deselectAllNotes()">
+                                <i class="bi bi-x-circle"></i> Снять выбор
+                            </button>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-secondary" 
+                                    onclick="toggleBatchActions()">
+                                Отмена
+                            </button>
+                            <button type="submit" class="btn btn-warning">
+                                Применить действие
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Скрытые поля с ID заметок -->
+                    <div id="batchNoteIds"></div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Статистика -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h2 class="text-primary">{{ total_notes }}</h2>
+                        <small class="text-muted">Всего заметок</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h2 class="text-warning">{{ pinned_notes }}</h2>
+                        <small class="text-muted">Закреплено</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h2 class="text-info">{{ archived_notes }}</h2>
+                        <small class="text-muted">В архиве</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>Мои заметки</h2>
+            <h2>
+                {% if show_archived %}
+                    <i class="bi bi-archive"></i> Архивные заметки
+                {% else %}
+                    Мои заметки
+                {% endif %}
+            </h2>
             <span class="badge bg-primary">{{ notes|length }} заметок</span>
         </div>
         
         {% if not notes %}
-        <div class="text-center py-5">
-            <i class="bi bi-journal-x display-1 text-muted"></i>
-            <h3 class="mt-3">Заметок пока нет</h3>
-            <p class="text-muted">Создайте свою первую заметку!</p>
-        </div>
+            <div class="text-center py-5">
+                <i class="bi bi-journal-x display-1 text-muted"></i>
+                <h3 class="mt-3">Заметок пока нет</h3>
+                <p class="text-muted">Создайте свою первую заметку!</p>
+            </div>
         {% else %}
             <!-- Закрепленные заметки -->
             {% set pinned_notes = notes|selectattr('is_pinned')|list %}
             {% if pinned_notes %}
-            <div class="mb-4">
-                <h5 class="mb-3">
-                    <i class="bi bi-pin-angle-fill text-warning"></i> Закрепленные
-                </h5>
-                <div class="row">
-                    {% for note in pinned_notes %}
-                    <div class="col-md-6 mb-3">
-                        {% include '_note_card.html' %}
+                <div class="mb-4">
+                    <h5 class="mb-3">
+                        <i class="bi bi-pin-angle-fill text-warning"></i> Закрепленные
+                    </h5>
+                    <div class="row">
+                        {% for note in pinned_notes %}
+                            <div class="col-md-6 mb-3">
+                                {% include '_note_card.html' %}
+                            </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 </div>
-            </div>
             {% endif %}
             
             <!-- Все заметки -->
-            <h5 class="mb-3">Все заметки</h5>
+            <h5 class="mb-3">
+                {% if pinned_notes %}Остальные заметки{% else %}Все заметки{% endif %}
+            </h5>
             <div class="row">
                 {% for note in notes %}
-                {% if not note.is_pinned %}
-                <div class="col-md-6 mb-3">
-                    {% include '_note_card.html' %}
-                </div>
-                {% endif %}
+                    {% if not note.is_pinned %}
+                        <div class="col-md-6 mb-3">
+                            {% include '_note_card.html' %}
+                        </div>
+                    {% endif %}
                 {% endfor %}
             </div>
         {% endif %}
         
         <!-- Список категорий -->
         {% if categories %}
-        <div class="card mt-4">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-folder"></i> Мои категории
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    {% for category in categories %}
-                    <div class="col-md-6 mb-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="badge bg-{{ category.color }}">
-                                    {{ category.name }}
-                                </span>
-                                <small class="text-muted ms-2">
-                                    {{ category.notes|length }} заметок
-                                </small>
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-folder"></i> Мои категории
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for category in categories %}
+                            <div class="col-md-6 mb-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="badge bg-{{ category.color }}">
+                                            {{ category.name }}
+                                        </span>
+                                        <small class="text-muted ms-2">
+                                            {{ category.notes|length }} заметок
+                                        </small>
+                                    </div>
+                                    <form method="POST" 
+                                          action="{{ url_for('delete_category', category_id=category.id) }}"
+                                          onsubmit="return confirm('Удалить категорию «{{ category.name }}»? Все заметки будут перемещены в «Без категории»')">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
-                            <form method="POST" 
-                                  action="{{ url_for('delete_category', category_id=category.id) }}"
-                                  onsubmit="return confirm('Удалить категорию «{{ category.name }}»? Все заметки будут перемещены в «Без категории»')">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </form>
-                        </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 </div>
             </div>
-        </div>
         {% endif %}
     </div>
 </div>
+
+<!-- Подключаем скрипт для массовых действий -->
+<script src="{{ url_for('static', filename='js/notes.js') }}"></script>
+
 {% endblock %}
