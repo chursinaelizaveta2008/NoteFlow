@@ -519,6 +519,114 @@ with app.app_context():
     db.create_all()
     print("✅ База данных создана!")
 
+@app.route('/api/stats')
+@login_required
+def get_stats():
+    """API для получения статистики"""
+    # Основная статистика
+    total_notes = Note.query.filter_by(user_id=current_user.id).count()
+    pinned_notes = Note.query.filter_by(
+        user_id=current_user.id, 
+        is_pinned=True,
+        is_archived=False
+    ).count()
+    archived_notes = Note.query.filter_by(
+        user_id=current_user.id, 
+        is_archived=True
+    ).count()
+    
+    # Статистика по категориям
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+    category_stats = []
+    
+    for category in categories:
+        notes_count = Note.query.filter_by(
+            category_id=category.id,
+            user_id=current_user.id,
+            is_archived=False
+        ).count()
+        
+        category_stats.append({
+            'name': category.name,
+            'color': category.color,
+            'count': notes_count
+        })
+    
+    # Последние 5 заметок
+    recent_notes = Note.query.filter_by(
+        user_id=current_user.id,
+        is_archived=False
+    ).order_by(Note.updated_at.desc()).limit(5).all()
+    
+    recent = [{
+        'id': note.id,
+        'title': note.title,
+        'updated_at': note.updated_at.strftime('%d.%m.%Y %H:%M')
+    } for note in recent_notes]
+    
+    return {
+        'success': True,
+        'data': {
+            'total_notes': total_notes,
+            'pinned_notes': pinned_notes,
+            'archived_notes': archived_notes,
+            'category_stats': category_stats,
+            'recent_notes': recent
+        }
+    }
+
+@app.route('/stats')
+@login_required
+def stats_page():
+    """Страница с подробной статистикой"""
+    # Получаем данные для графиков
+    notes_by_month = []
+    
+    # Заметки за последние 6 месяцев
+    from datetime import datetime, timedelta
+    import calendar
+    
+    for i in range(5, -1, -1):
+        month_start = datetime.utcnow().replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        ) - timedelta(days=30*i)
+        
+        month_end = month_start + timedelta(days=32)
+        month_end = month_end.replace(day=1) - timedelta(days=1)
+        
+        count = Note.query.filter(
+            Note.user_id == current_user.id,
+            Note.created_at >= month_start,
+            Note.created_at <= month_end
+        ).count()
+        
+        notes_by_month.append({
+            'month': calendar.month_name[month_start.month],
+            'count': count
+        })
+    
+    # Топ тегов
+    all_tags = {}
+    notes = Note.query.filter_by(user_id=current_user.id).all()
+    
+    for note in notes:
+        if note.tags:
+            for tag in note.tags.split(','):
+                tag_clean = tag.strip().lower()
+                if tag_clean:
+                    all_tags[tag_clean] = all_tags.get(tag_clean, 0) + 1
+    
+    top_tags = sorted(all_tags.items(), key=lambda x: x[1], reverse=True)[:10]
+    
+    # Статистика по времени суток
+    import random  # Временные данные для демо
+    hourly_stats = [random.randint(0, 10) for _ in range(24)]
+    
+    return render_template('stats.html',
+                         notes_by_month=notes_by_month,
+                         top_tags=top_tags,
+                         hourly_stats=hourly_stats)
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # Создаем таблицы в БД
