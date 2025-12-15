@@ -627,6 +627,57 @@ def stats_page():
                          top_tags=top_tags,
                          hourly_stats=hourly_stats)
 
+@app.route('/export/notes')
+@login_required
+def export_notes():
+    """Экспорт заметок в формате Markdown"""
+    import io
+    from flask import send_file
+    
+    # Получаем заметки пользователя
+    notes = Note.query.filter_by(
+        user_id=current_user.id,
+        is_archived=False
+    ).order_by(Note.created_at.desc()).all()
+    
+    # Создаем Markdown документ
+    output = io.StringIO()
+    
+    output.write(f"# Экспорт заметок из NoteFlow\n\n")
+    output.write(f"Пользователь: {current_user.username}\n")
+    output.write(f"Дата экспорта: {datetime.utcnow().strftime('%d.%m.%Y %H:%M')}\n")
+    output.write(f"Всего заметок: {len(notes)}\n\n")
+    
+    for note in notes:
+        output.write(f"## {note.title}\n\n")
+        
+        if note.category_id:
+            category = Category.query.get(note.category_id)
+            if category:
+                output.write(f"**Категория:** {category.name}\n\n")
+        
+        if note.tags:
+            output.write(f"**Теги:** {note.tags}\n\n")
+        
+        output.write(f"**Создано:** {note.created_at.strftime('%d.%m.%Y %H:%M')}\n")
+        output.write(f"**Обновлено:** {note.updated_at.strftime('%d.%m.%Y %H:%M')}\n\n")
+        
+        if note.content:
+            output.write(f"{note.content}\n")
+        
+        output.write(f"\n---\n\n")
+    
+    # Конвертируем в bytes для отправки
+    content = output.getvalue().encode('utf-8')
+    output.close()
+    
+    return send_file(
+        io.BytesIO(content),
+        mimetype='text/markdown',
+        as_attachment=True,
+        download_name=f'noteflow_export_{datetime.utcnow().strftime("%Y%m%d")}.md'
+    )
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # Создаем таблицы в БД
