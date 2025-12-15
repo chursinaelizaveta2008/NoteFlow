@@ -1,0 +1,262 @@
+<!-- templates/stats.html -->
+{% extends "base.html" %}
+
+{% block title %}Статистика - NoteFlow{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-graph-up"></i> Статистика</h2>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left"></i> Назад к заметкам
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Основная статистика -->
+    <div class="col-md-3 mb-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h1 class="display-4" id="totalNotes">0</h1>
+                <p class="mb-0">Всего заметок</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card bg-warning text-dark">
+            <div class="card-body text-center">
+                <h1 class="display-4" id="pinnedNotes">0</h1>
+                <p class="mb-0">Закреплено</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h1 class="display-4" id="archivedNotes">0</h1>
+                <p class="mb-0">В архиве</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h1 class="display-4" id="categoriesCount">0</h1>
+                <p class="mb-0">Категорий</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- График по месяцам -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-calendar-month"></i> Активность по месяцам
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="monthlyChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Популярные теги -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-tags"></i> Популярные теги
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="tagsCloud">
+                    <!-- Теги будут загружены через JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Статистика по категориям -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-folder"></i> Распределение по категориям
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="categoryChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Последние заметки -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-clock-history"></i> Последние изменения
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="recentNotes">
+                    <!-- Заметки будут загружены через JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Chart.js для графиков -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Загрузка статистики через API
+async function loadStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        
+        if (data.success) {
+            updateStats(data.data);
+            createCharts(data.data);
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки статистики:', error);
+    }
+}
+
+// Обновление цифр статистики
+function updateStats(stats) {
+    document.getElementById('totalNotes').textContent = stats.total_notes;
+    document.getElementById('pinnedNotes').textContent = stats.pinned_notes;
+    document.getElementById('archivedNotes').textContent = stats.archived_notes;
+    document.getElementById('categoriesCount').textContent = stats.category_stats.length;
+    
+    // Облако тегов
+    const tagsCloud = document.getElementById('tagsCloud');
+    tagsCloud.innerHTML = '';
+    
+    {% for tag, count in top_tags %}
+    const size = Math.max(14, Math.min(30, {{ count }} * 2 + 14));
+    const tagElement = document.createElement('span');
+    tagElement.className = 'badge me-2 mb-2';
+    tagElement.style.fontSize = `${size}px`;
+    tagElement.style.backgroundColor = `hsl(${Math.random() * 360}, 70%, 70%)`;
+    tagElement.textContent = '{{ tag }}';
+    tagsCloud.appendChild(tagElement);
+    {% endfor %}
+    
+    // Последние заметки
+    const recentNotes = document.getElementById('recentNotes');
+    recentNotes.innerHTML = '';
+    
+    stats.recent_notes.forEach(note => {
+        const noteElement = document.createElement('div');
+        noteElement.className = 'mb-2';
+        noteElement.innerHTML = `
+            <a href="/notes/${note.id}" class="text-decoration-none">
+                <strong>${note.title}</strong>
+            </a>
+            <br>
+            <small class="text-muted">
+                <i class="bi bi-clock"></i> ${note.updated_at}
+            </small>
+        `;
+        recentNotes.appendChild(noteElement);
+    });
+}
+
+// Создание графиков
+function createCharts(stats) {
+    // График по месяцам
+    const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+    new Chart(monthlyCtx, {
+        type: 'bar',
+        data: {
+            labels: [{% for month in notes_by_month %}'{{ month.month }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                label: 'Создано заметок',
+                data: [{% for month in notes_by_month %}{{ month.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+    
+    // Круговая диаграмма категорий
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    const colors = [
+        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+        '#9966FF', '#FF9F40', '#8AC926', '#1982C4'
+    ];
+    
+    new Chart(categoryCtx, {
+        type: 'doughnut',
+        data: {
+            labels: stats.category_stats.map(c => c.name),
+            datasets: [{
+                data: stats.category_stats.map(c => c.count),
+                backgroundColor: colors.slice(0, stats.category_stats.length),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right'
+                }
+            }
+        }
+    });
+}
+
+// Загружаем статистику при загрузке страницы
+document.addEventListener('DOMContentLoaded', loadStats);
+</script>
+
+<style>
+#tagsCloud {
+    min-height: 200px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+}
+
+.badge {
+    transition: transform 0.2s;
+    cursor: pointer;
+}
+
+.badge:hover {
+    transform: scale(1.1);
+}
+</style>
+{% endblock %}
