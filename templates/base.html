@@ -36,10 +36,16 @@
                     <a class="nav-link" href="{{ url_for('dashboard') }}">
                         <i class="bi bi-journal"></i> Мои заметки
                     </a>
+                    <a class="nav-link" href="{{ url_for('stats_page') }}">
+                        <i class="bi bi-graph-up"></i> Статистика
+                    </a>
+                    <a class="nav-link" href="{{ url_for('export_notes') }}">
+                        <i class="bi bi-download"></i> Экспорт
+                    </a>
                     <a class="nav-link" href="{{ url_for('logout') }}">
                         <i class="bi bi-box-arrow-right"></i> Выйти
                     </a>
-                </div>
+               </div>
             {% else %}
                 <div class="navbar-nav ms-auto">
                     <a class="nav-link" href="{{ url_for('login') }}">Вход</a>
