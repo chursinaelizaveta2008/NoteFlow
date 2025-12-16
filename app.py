@@ -5,6 +5,8 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from datetime import timedelta
+import secrets
 
 # Инициализация Flask приложения
 app = Flask(__name__)
@@ -696,6 +698,167 @@ def export_notes():
         as_attachment=True,
         download_name=f'noteflow_export_{datetime.utcnow().strftime("%Y%m%d")}.md'
     )
+
+@app.route('/profile')
+@login_required
+def profile():
+    """Страница профиля пользователя"""
+    # Статистика пользователя
+    total_notes = Note.query.filter_by(user_id=current_user.id).count()
+    pinned_notes = Note.query.filter_by(
+        user_id=current_user.id, 
+        is_pinned=True,
+        is_archived=False
+    ).count()
+    
+    # Последняя активность
+    last_note = Note.query.filter_by(
+        user_id=current_user.id
+    ).order_by(Note.updated_at.desc()).first()
+    
+    return render_template('profile.html',
+                         total_notes=total_notes,
+                         pinned_notes=pinned_notes,
+                         last_note=last_note)
+
+
+@app.route('/profile/update', methods=['POST'])
+@login_required
+def update_profile():
+    """Обновление профиля пользователя"""
+    username = request.form.get('username', '').strip()
+    email = request.form.get('email', '').strip()
+    
+    if not username or not email:
+        flash('Все поля обязательны для заполнения', 'danger')
+        return redirect(url_for('profile'))
+    
+    # Проверяем уникальность username
+    if username != current_user.username:
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
+            flash('Имя пользователя уже занято', 'danger')
+            return redirect(url_for('profile'))
+    
+    # Проверяем уникальность email
+    if email != current_user.email:
+        existing_email = User.query.filter_by(email=email).first()
+        if existing_email:
+            flash('Email уже зарегистрирован', 'danger')
+            return redirect(url_for('profile'))
+    
+    # Обновляем данные
+    current_user.username = username
+    current_user.email = email
+    db.session.commit()
+    
+    flash('Профиль успешно обновлен!', 'success')
+    return redirect(url_for('profile'))
+
+
+@app.route('/profile/change-password', methods=['POST'])
+@login_required
+def change_password():
+    """Изменение пароля"""
+    current_password = request.form.get('current_password')
+    new_password = request.form.get('new_password')
+    confirm_password = request.form.get('confirm_password')
+    
+    # Проверка текущего пароля
+    if not current_user.check_password(current_password):
+        flash('Текущий пароль неверен', 'danger')
+        return redirect(url_for('profile'))
+    
+    # Проверка нового пароля
+    if new_password != confirm_password:
+        flash('Новые пароли не совпадают', 'danger')
+        return redirect(url_for('profile'))
+    
+    if len(new_password) < 6:
+        flash('Пароль должен содержать минимум 6 символов', 'danger')
+        return redirect(url_for('profile'))
+    
+    # Устанавливаем новый пароль
+    current_user.set_password(new_password)
+    db.session.commit()
+    
+    flash('Пароль успешно изменен!', 'success')
+    return redirect(url_for('profile'))
+
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Запрос на сброс пароля"""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            # Создаем токен сброса пароля
+            token = secrets.token_urlsafe(32)
+            expires_at = datetime.utcnow() + timedelta(hours=24)
+            
+            reset_token = PasswordResetToken(
+                user_id=user.id,
+                token=token,
+                expires_at=expires_at
+            )
+            
+            db.session.add(reset_token)
+            db.session.commit()
+            
+            # В реальном приложении здесь была бы отправка email
+            # Для демо просто показываем ссылку
+            reset_url = url_for('reset_password', token=token, _external=True)
+            
+            flash(
+                f'Ссылка для сброса пароля: {reset_url}<br>'
+                f'В реальном приложении это будет отправлено на email.',
+                'info'
+            )
+        
+        # Всегда показываем одинаковое сообщение для безопасности
+        flash('Если email существует, инструкции отправлены на почту', 'info')
+        return redirect(url_for('login'))
+    
+    return render_template('forgot_password.html')
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Сброс пароля по токену"""
+    reset_token = PasswordResetToken.query.filter_by(token=token).first()
+    
+    if not reset_token or not reset_token.is_valid():
+        flash('Недействительная или просроченная ссылка', 'danger')
+        return redirect(url_for('forgot_password'))
+    
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if password != confirm_password:
+            flash('Пароли не совпадают', 'danger')
+            return redirect(url_for('reset_password', token=token))
+        
+        if len(password) < 6:
+            flash('Пароль должен содержать минимум 6 символов', 'danger')
+            return redirect(url_for('reset_password', token=token))
+        
+        # Обновляем пароль
+        user = reset_token.user
+        user.set_password(password)
+        
+        # Помечаем токен как использованный
+        reset_token.is_used = True
+        
+        db.session.commit()
+        
+        flash('Пароль успешно изменен! Теперь вы можете войти.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password.html', token=token)
 
 if __name__ == '__main__':
     with app.app_context():
