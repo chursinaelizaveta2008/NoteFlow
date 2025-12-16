@@ -80,6 +80,25 @@ class Note(db.Model):
     def __repr__(self):
         return f'<Note {self.title}>'
 
+class PasswordResetToken(db.Model):
+    """Токен для сброса пароля"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    token = db.Column(db.String(100), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    is_used = db.Column(db.Boolean, default=False)
+    
+    user = db.relationship('User', backref='reset_tokens')
+    
+    def is_valid(self):
+        """Проверка валидности токена"""
+        return (datetime.utcnow() < self.expires_at and 
+                not self.is_used)
+    
+    def __repr__(self):
+        return f'<PasswordResetToken {self.token[:10]}...>'
+
 # --- МАРШРУТЫ ---
 
 @app.route('/')
