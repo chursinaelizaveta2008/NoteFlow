@@ -103,6 +103,11 @@ class PasswordResetToken(db.Model):
 
 # --- МАРШРУТЫ ---
 
+@app.route('/about')
+def about():
+    """Страница "О приложении" """
+    return render_template('about.html')
+
 @app.route('/')
 def index():
     """Главная страница"""
