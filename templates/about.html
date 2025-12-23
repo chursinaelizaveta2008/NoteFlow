@@ -1,0 +1,127 @@
+<!-- templates/about.html -->
+{% extends "base.html" %}
+
+{% block title %}О проекте - NoteFlow{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">
+                    <i class="bi bi-info-circle"></i> О проекте NoteFlow
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h1 class="display-4 text-primary">
+                        <i class="bi bi-journal-text"></i> NoteFlow
+                    </h1>
+                    <p class="lead">Умное приложение для организации заметок</p>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h4>Возможности</h4>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                Создание и редактирование заметок
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                Категории и цветовые метки
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                Поиск и фильтрация
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                Закрепление важных заметок
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                Архивация и восстановление
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                Подробная статистика
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                Экспорт данных
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h4>Технологии</h4>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="text-primary">Python</h5>
+                                        <p class="text-muted">Backend</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="text-primary">Flask</h5>
+                                        <p class="text-muted">Web Framework</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="text-primary">SQLite</h5>
+                                        <p class="text-muted">База данных</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="text-primary">Bootstrap 5</h5>
+                                        <p class="text-muted">UI Framework</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h4>Разработка</h4>
+                <p>
+                    NoteFlow был создан как учебный проект для демонстрации возможностей 
+                    веб-разработки на Python с использованием Flask. Проект включает 
+                    полный набор функций современного веб-приложения.
+                </p>
+                
+                <div class="alert alert-info mt-4">
+                    <h5><i class="bi bi-code-slash"></i> Исходный код</h5>
+                    <p class="mb-0">
+                        Проект с открытым исходным кодом. Вы можете изучить код, 
+                        внести изменения или использовать его в качестве основы 
+                        для своих проектов.
+                    </p>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-house-door"></i> На главную
+                    </a>
+                    {% if not current_user.is_authenticated %}
+                    <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg ms-2">
+                        <i class="bi bi-person-plus"></i> Начать использовать
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
