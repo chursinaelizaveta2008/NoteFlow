@@ -16,11 +16,6 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///notes.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Базовая конфигурация
-app.config['SECRET_KEY'] = 'dev-secret-key-change-in-production'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///notes.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 # Инициализация базы данных
 db = SQLAlchemy(app)
 
