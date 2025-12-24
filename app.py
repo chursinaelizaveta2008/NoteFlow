@@ -7,9 +7,14 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from datetime import timedelta
 import secrets
+from dotenv import load_dotenv
 
-# Инициализация Flask приложения
+load_dotenv()  # Загружаем переменные окружения из .env
+
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///notes.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Базовая конфигурация
 app.config['SECRET_KEY'] = 'dev-secret-key-change-in-production'
